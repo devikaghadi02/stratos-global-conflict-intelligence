@@ -1,14 +1,14 @@
 // src/components/layout/TopBar.jsx
 import { motion } from "framer-motion";
-import { Shield, Wifi, Clock, AlertTriangle } from "lucide-react";
+import { Shield, Activity, Clock, AlertTriangle, Cpu } from "lucide-react";
 import { useApp } from "../../context/useApp";
 
 function LiveDot({ active = true }) {
-    if (!active) return <span className="w-1.5 h-1.5 rounded-full bg-slate-600 inline-block" />;
+    if (!active) return <span className="w-1.5 h-1.5 rounded-full bg-slate-700" />;
     return (
-        <span className="relative inline-flex">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
-            <span className="absolute inset-0 w-1.5 h-1.5 rounded-full bg-green-400 animate-ping opacity-60" />
+        <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-success opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-success"></span>
         </span>
     );
 }
@@ -22,54 +22,70 @@ export default function TopBar() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="flex items-center justify-between px-6 py-3 border-b shrink-0 relative z-10"
-            style={{
-                background: "linear-gradient(90deg, #080c14 0%, #0d1525 50%, #080c14 100%)",
-                borderColor: "#1a2d4a",
-            }}
+            className="flex items-center justify-between px-6 py-2.5 glass-panel border-b-0 rounded-none z-50 sticky top-0"
         >
-            <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                    <Shield size={18} style={{ color: "#00d4ff" }} />
-                    <span
-                        className="font-display text-2xl tracking-widest"
-                        style={{ color: "#00d4ff", textShadow: "0 0 20px rgba(0,212,255,0.5)" }}
-                    >
-                        STRATOS
-                    </span>
+            {/* Logo & Platform Info */}
+            <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 bg-brand-primary/10 rounded-lg border border-brand-primary/20">
+                        <Shield size={18} className="text-brand-primary" />
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="font-heading text-lg font-bold tracking-tight text-white leading-tight">
+                            STRATOS <span className="text-brand-secondary">INTEL</span>
+                        </span>
+                        <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest">
+                            Conflict Intelligence System
+                        </span>
+                    </div>
                 </div>
-                <div className="h-5 w-px" style={{ background: "#1a2d4a" }} />
-                <span className="text-xs font-mono text-slate-500 tracking-wider">
-                    GLOBAL CONFLICT INTELLIGENCE PLATFORM
-                </span>
             </div>
 
-            <div className="flex items-center gap-6">
+            {/* Central Status Indicators */}
+            <div className="flex items-center gap-8 px-6 py-1.5 bg-slate-900/50 rounded-full border border-slate-800/50 shadow-inner">
                 <div className="flex items-center gap-2">
                     <LiveDot />
-                    <span className="text-xs font-mono text-green-400">PIPELINE ACTIVE</span>
+                    <span className="text-[10px] font-mono font-bold text-slate-300">SYSTEM READY</span>
                 </div>
+                <div className="h-3 w-px bg-slate-800" />
                 <div className="flex items-center gap-2">
-                    <Wifi size={12} style={{ color: "#06b6d4" }} />
-                    <span className="text-xs font-mono text-slate-400">FEEDS: 6/6</span>
+                    <Activity size={12} className="text-brand-secondary" />
+                    <span className="text-[10px] font-mono font-bold text-slate-300">ENCRYPTION: AES-256</span>
                 </div>
-                <div
-                    className="flex items-center gap-2 px-3 py-1 rounded"
-                    style={{ background: "#ef444415", border: "1px solid #ef444430" }}
-                >
-                    <AlertTriangle size={12} style={{ color: "#ef4444" }} />
-                    <span className="text-xs font-mono" style={{ color: "#ef4444" }}>
-                        THREAT LEVEL: HIGH
-                    </span>
+                <div className="h-3 w-px bg-slate-800" />
+                <div className="flex items-center gap-2">
+                    <Cpu size={12} className="text-brand-accent" />
+                    <span className="text-[10px] font-mono font-bold text-slate-300">GPU: OPTIMIZED</span>
                 </div>
             </div>
 
-            <div className="flex items-center gap-4 text-xs font-mono text-slate-500">
-                <span>DOCS: {documentStats?.total_words?.toLocaleString() || "847"} WORDS</span>
-                <span>CHUNKS: {documentStats?.total_chunks || 7}</span>
-                <div className="flex items-center gap-1">
-                    <Clock size={11} />
-                    <span className="text-slate-400">{now} UTC</span>
+            {/* Right Side Info */}
+            <div className="flex items-center gap-6">
+                <div className="flex flex-col items-end">
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-mono text-slate-500">THREAT LEVEL</span>
+                        <div className="flex gap-0.5">
+                            {[1, 2, 3, 4, 5].map((i) => (
+                                <div
+                                    key={i}
+                                    className={`w-1 h-3 rounded-full ${i <= 4 ? 'bg-brand-critical' : 'bg-slate-800'}`}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                    <span className="text-[10px] font-mono font-bold text-brand-critical">CRITICAL (8.4/10)</span>
+                </div>
+
+                <div className="h-8 w-px bg-slate-800" />
+
+                <div className="flex items-center gap-3">
+                    <div className="flex flex-col items-end">
+                        <span className="text-[10px] font-mono text-slate-500">CURRENT SESSION</span>
+                        <div className="flex items-center gap-1.5 text-slate-300">
+                            <Clock size={11} className="text-slate-500" />
+                            <span className="text-[10px] font-mono font-semibold uppercase">{now} UTC</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </motion.header>

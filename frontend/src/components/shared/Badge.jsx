@@ -1,22 +1,20 @@
 // src/components/shared/Badge.jsx
-const SEVERITY_STYLES = {
-    CRITICAL: { bg: "#ef444420", color: "#ef4444", border: "#ef444440" },
-    EXTREME: { bg: "#ef444430", color: "#ff6060", border: "#ef444460" },
-    HIGH: { bg: "#f59e0b20", color: "#f59e0b", border: "#f59e0b40" },
-    ELEVATED: { bg: "#f59e0b15", color: "#fbbf24", border: "#f59e0b30" },
-    MEDIUM: { bg: "#8b5cf620", color: "#8b5cf6", border: "#8b5cf640" },
-    LOW: { bg: "#10b98120", color: "#10b981", border: "#10b98140" },
-    ACTIVE: { bg: "#10b98120", color: "#10b981", border: "#10b98140" },
-    IDLE: { bg: "#1a2d4a", color: "#64748b", border: "#1a2d4a" },
+
+const SEVERITY_CLASSES = {
+    EXTREME: "bg-brand-critical/10 text-brand-critical border-brand-critical/20",
+    CRITICAL: "bg-brand-critical/10 text-brand-critical border-brand-critical/20",
+    HIGH: "bg-brand-accent/10 text-brand-accent border-brand-accent/20",
+    ELEVATED: "bg-brand-accent/10 text-brand-accent border-brand-accent/20",
+    MEDIUM: "bg-brand-primary/10 text-brand-primary border-brand-primary/20",
+    LOW: "bg-brand-success/10 text-brand-success border-brand-success/20",
+    ACTIVE: "bg-brand-success/10 text-brand-success border-brand-success/20",
+    IDLE: "bg-slate-800 text-slate-500 border-slate-700",
 };
 
 export function SeverityBadge({ level, className = "" }) {
-    const style = SEVERITY_STYLES[level] || SEVERITY_STYLES.MEDIUM;
+    const classes = SEVERITY_CLASSES[level] || SEVERITY_CLASSES.MEDIUM;
     return (
-        <span
-            className={`text-xs font-mono font-semibold px-2 py-0.5 rounded border ${className}`}
-            style={{ background: style.bg, color: style.color, borderColor: style.border }}
-        >
+        <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border shadow-sm uppercase tracking-tight ${classes} ${className}`}>
             {level}
         </span>
     );
@@ -24,27 +22,23 @@ export function SeverityBadge({ level, className = "" }) {
 
 export function DomainBadge({ domain }) {
     const colors = {
-        ENERGY: "#f59e0b",
-        TRADE: "#00d4ff",
-        CONFLICT: "#ef4444",
-        DIPLOMACY: "#8b5cf6",
-        LOGISTICS: "#10b981",
-        ECONOMY: "#0077ff",
-        SHIPPING: "#06b6d4",
+        ENERGY: "text-brand-accent bg-brand-accent/10",
+        TRADE: "text-brand-secondary bg-brand-secondary/10",
+        CONFLICT: "text-brand-critical bg-brand-critical/10",
+        DIPLOMACY: "text-purple-400 bg-purple-400/10",
+        LOGISTICS: "text-brand-success bg-brand-success/10",
+        ECONOMY: "text-blue-400 bg-blue-400/10",
+        SHIPPING: "text-cyan-400 bg-cyan-400/10",
     };
-    const c = colors[domain] || "#64748b";
+    const c = colors[domain] || "text-slate-500 bg-slate-500/10";
     return (
-        <span
-            className="text-xs font-mono font-semibold px-2 py-0.5 rounded"
-            style={{ background: `${c}20`, color: c }}
-        >
+        <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${c}`}>
             {domain}
         </span>
     );
 }
 
-// src/components/shared/LoadingSpinner.jsx
-export function LoadingSpinner({ size = 16, color = "#00d4ff" }) {
+export function LoadingSpinner({ size = 16, color = "currentColor" }) {
     return (
         <div
             className="inline-block rounded-full border-2 border-transparent animate-spin"
@@ -52,7 +46,7 @@ export function LoadingSpinner({ size = 16, color = "#00d4ff" }) {
                 width: size,
                 height: size,
                 borderTopColor: color,
-                borderRightColor: `${color}40`,
+                borderRightColor: "rgba(255,255,255,0.1)",
             }}
         />
     );

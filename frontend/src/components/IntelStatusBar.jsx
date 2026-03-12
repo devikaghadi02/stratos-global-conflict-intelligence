@@ -1,35 +1,29 @@
 import { motion } from "framer-motion";
-// Fixed the import path below
 import { useApp } from "../context/AppContext";
 
-const FLOW_COLORS = {
-    ACTIVE: { dot: "#10b981", text: "#10b981", bg: "#10b98115" },
-    IDLE: { dot: "#475569", text: "#475569", bg: "#1a2d4a" },
-    ERROR: { dot: "#ef4444", text: "#ef4444", bg: "#ef444415" },
+const STATUS_CLASSES = {
+    ACTIVE: "text-brand-success border-brand-success/20 bg-brand-success/5",
+    IDLE: "text-slate-500 border-slate-700 bg-slate-800/20",
+    ERROR: "text-brand-critical border-brand-critical/20 bg-brand-critical/5",
 };
 
 function FlowBadge({ label, status, latency, index }) {
-    const c = FLOW_COLORS[status] || FLOW_COLORS.IDLE;
+    const classes = STATUS_CLASSES[status] || STATUS_CLASSES.IDLE;
     return (
         <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: index * 0.07 }}
-            className="flex items-center gap-2 px-3 py-2 rounded border"
-            style={{ background: c.bg, borderColor: `${c.dot}30` }}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.05 }}
+            className={`flex items-center gap-2 px-2.5 py-1 rounded-md border ${classes}`}
         >
-            <span
-                className="w-1.5 h-1.5 rounded-full shrink-0"
-                style={{
-                    background: c.dot,
-                    boxShadow: status === "ACTIVE" ? `0 0 6px ${c.dot}` : "none",
-                }}
-            />
-            <div>
-                <div className="text-xs font-mono font-medium" style={{ color: c.text }}>
+            <span className={`w-1 h-1 rounded-full ${status === 'ACTIVE' ? 'animate-pulse bg-brand-success' : 'bg-current'}`} />
+            <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider">
                     {label}
-                </div>
-                <div className="text-xs font-mono text-slate-600">{latency}</div>
+                </span>
+                <span className="text-[9px] font-mono opacity-50 font-medium">
+                    {latency}
+                </span>
             </div>
         </motion.div>
     );
@@ -39,42 +33,37 @@ export default function IntelStatusBar() {
     const { pipelineStatus, documentStats } = useApp();
 
     const statItems = [
-        { label: "TOTAL CHARS", value: documentStats?.total_chars?.toLocaleString() || "0" },
-        { label: "WORD COUNT", value: documentStats?.total_words?.toLocaleString() || "0" },
+        { label: "CHARS", value: documentStats?.total_chars?.toLocaleString() || "0" },
+        { label: "WORDS", value: documentStats?.total_words?.toLocaleString() || "0" },
         { label: "CHUNKS", value: documentStats?.total_chunks || 0 },
-        { label: "EMBED DIM", value: documentStats?.embedding_dim || 0 },
+        { label: "EMBED", value: `${documentStats?.embedding_dim || 1536}D` },
     ];
 
     return (
-        <div
-            className="px-4 py-3 border-b shrink-0"
-            style={{ background: "#080c14", borderColor: "#1a2d4a" }}
-        >
-            <div className="flex items-center gap-4 flex-wrap">
-                <div className="flex items-center gap-2 flex-wrap">
-                    {Object.entries(pipelineStatus || {}).map(([key, flow], i) => (
-                        <FlowBadge
-                            key={key}
-                            label={flow.label}
-                            status={flow.status}
-                            latency={flow.latency}
-                            index={i}
-                        />
-                    ))}
-                </div>
+        <div className="px-6 py-2 bg-slate-900/30 border-b border-slate-800/10 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+                {Object.entries(pipelineStatus || {}).map(([key, flow], i) => (
+                    <FlowBadge
+                        key={key}
+                        label={flow.label}
+                        status={flow.status}
+                        latency={flow.latency}
+                        index={i}
+                    />
+                ))}
+            </div>
 
-                <div className="h-8 w-px mx-2" style={{ background: "#1a2d4a" }} />
-
-                <div className="flex items-center gap-4">
-                    {statItems.map((s) => (
-                        <div key={s.label} className="text-center">
-                            <div className="text-xs font-mono text-slate-500 tracking-wider">{s.label}</div>
-                            <div className="text-sm font-mono font-semibold" style={{ color: "#00d4ff" }}>
-                                {s.value}
-                            </div>
-                        </div>
-                    ))}
-                </div>
+            <div className="flex items-center gap-6">
+                {statItems.map((s) => (
+                    <div key={s.label} className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono text-slate-500 font-medium tracking-tight">
+                            {s.label}
+                        </span>
+                        <span className="text-[11px] font-mono font-bold text-slate-300">
+                            {s.value}
+                        </span>
+                    </div>
+                ))}
             </div>
         </div>
     );
