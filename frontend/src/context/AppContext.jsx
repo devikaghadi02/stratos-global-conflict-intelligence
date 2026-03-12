@@ -34,10 +34,10 @@ export function AppProvider({ children }) {
     const [documentStats, setDocumentStats] = useState(mockDocumentStats);
     const [evidenceChunks, setEvidenceChunks] = useState(mockEvidenceChunks);
     const [geopoliticalSignals, setGeopoliticalSignals] = useState(mockGeopoliticalSignals);
-    const [events] = useState(mockEvents);
-    const [systemImpact] = useState(mockSystemImpact);
-    const [riskForecast] = useState(mockRiskForecast);
-    const [narratives] = useState(mockNarratives);
+    const [events, setEvents] = useState(mockEvents);
+    const [systemImpact, setSystemImpact] = useState(mockSystemImpact);
+    const [riskForecast, setRiskForecast] = useState(mockRiskForecast);
+    const [narratives, setNarratives] = useState(mockNarratives);
 
     const [chatHistory, setChatHistory] = useState(mockChatHistory);
     const [isChatLoading, setIsChatLoading] = useState(false);
@@ -48,9 +48,43 @@ export function AppProvider({ children }) {
         setAnalysisError(null);
         try {
             const data = await ingestDocument(documentText, queryText);
-            if (data.document_stats) setDocumentStats(data.document_stats);
-            if (data.evidence_chunks?.length) setEvidenceChunks(data.evidence_chunks);
-            if (data.geopolitical_signals?.length) setGeopoliticalSignals(data.geopolitical_signals);
+
+            /*
+            FLOW 1 — INGESTION
+            */
+            if (data.ingestion) {
+                setDocumentStats(data.ingestion.document_stats || {});
+                setEvidenceChunks(data.ingestion.evidence_chunks || []);
+                setGeopoliticalSignals(data.ingestion.geopolitical_signals || []);
+            }
+
+            /*
+            FLOW 2 — EVENTS
+            */
+            if (data.intelligence?.events) {
+                setEvents(data.intelligence.events);
+            }
+
+            /*
+            FLOW 3 — IMPACT
+            */
+            if (data.impact?.impacts) {
+                setSystemImpact(data.impact.impacts);
+            }
+
+            /*
+            FLOW 4 — RISKS
+            */
+            if (data.forecast?.risks) {
+                setRiskForecast(data.forecast.risks);
+            }
+
+            /*
+            FLOW 5 — NARRATIVES
+            */
+            if (data.narrative_reality?.narrative_checks) {
+                setNarratives(data.narrative_reality.narrative_checks);
+            }
         } catch (err) {
             setAnalysisError(err.message);
         } finally {

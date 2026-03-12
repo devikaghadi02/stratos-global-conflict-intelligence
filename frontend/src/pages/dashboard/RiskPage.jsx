@@ -21,7 +21,7 @@ export default function RiskPage() {
             </div>
 
             <div className="space-y-6">
-                {riskForecast?.map((risk, i) => (
+                {riskForecast?.risks?.map((risk, i) => (
                     <motion.div
                         key={i}
                         initial={{ opacity: 0, x: -20 }}
@@ -50,8 +50,8 @@ export default function RiskPage() {
                             <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-3">
                                     <span className={`px-2 py-0.5 rounded text-[10px] font-[800] border uppercase tracking-widest ${risk.probability > 75 ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                                            risk.probability > 50 ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                                                'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+                                        risk.probability > 50 ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                            'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
                                         }`}>
                                         {risk.probability > 75 ? 'CRITICAL' : risk.probability > 50 ? 'PROBABLE' : 'POSSIBLE'}
                                     </span>
@@ -62,11 +62,11 @@ export default function RiskPage() {
                                 </div>
 
                                 <h3 className="text-[24px] font-[700] text-white mb-3 group-hover:text-[var(--color-cyan-brand)] transition-colors">
-                                    {risk.scenario}
+                                    {risk.title}
                                 </h3>
 
                                 <p className="text-[16px] text-[var(--color-text-secondary)] leading-relaxed mb-6">
-                                    Analysis of current vectors indicates a shift towards {risk.scenario.toLowerCase()}.
+                                    Analysis of current vectors indicates a shift towards {risk.title.toLowerCase()}.
                                     Potential impact concentrated in logistics and maritime trade routes.
                                 </p>
 
