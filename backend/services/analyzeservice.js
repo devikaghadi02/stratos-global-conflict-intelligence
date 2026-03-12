@@ -2,11 +2,11 @@ import { ingestDocument } from "./ingestionservice.js";
 import { extractEvents } from "./eventservice.js";
 import { analyzeImpact } from "./impactservice.js";
 import { forecastRisks } from "./riskservice.js";
+import { checkNarratives } from "./narrativeservice.js";
 
 /**
- * Master orchestrator — runs Flow 1, then Flow 2 + Flow 3 in parallel,
- * then Flow 4 using Flow 3 output.
- * Returns combined result from all four flows in one response.
+ * Master orchestrator — runs all 5 flows in sequence/parallel.
+ * Flow 1 → Flow 2 + Flow 3 (parallel) → Flow 4 + Flow 5 (parallel)
  */
 export async function runFullAnalysis({ text, query }) {
   console.log("[STRATOS] Starting full analysis pipeline...");
@@ -16,9 +16,7 @@ export async function runFullAnalysis({ text, query }) {
   // ─────────────────────────────────────────
   console.log("[STRATOS] Flow 1 — Ingesting document...");
   const ingestResult = await ingestDocument({ text, query });
-  console.log(
-    `[STRATOS] Flow 1 done — ${ingestResult.document_stats.total_chunks} chunks`
-  );
+  console.log(`[STRATOS] Flow 1 done — ${ingestResult.document_stats.total_chunks} chunks`);
 
   const { evidence_chunks, geopolitical_signals } = ingestResult;
 
@@ -32,64 +30,72 @@ export async function runFullAnalysis({ text, query }) {
     analyzeImpact({ evidenceChunks: evidence_chunks, signals: geopolitical_signals }),
   ]);
 
-  // Handle Flow 2 result
   const events =
     eventResult.status === "fulfilled"
       ? eventResult.value
       : { error: eventResult.reason?.message, events: [], narratives: [] };
 
-  if (eventResult.status === "fulfilled") {
-    console.log(
-      `[STRATOS] Flow 2 done — ${events.event_count} events, ${events.narrative_count} narratives`
-    );
-  } else {
-    console.error("[STRATOS] Flow 2 failed:", eventResult.reason?.message);
-  }
-
-  // Handle Flow 3 result
   const impact =
     impactResult.status === "fulfilled"
       ? impactResult.value
       : { error: impactResult.reason?.message, impacts: [] };
 
+  if (eventResult.status === "fulfilled") {
+    console.log(`[STRATOS] Flow 2 done — ${events.event_count} events, ${events.narrative_count} narratives`);
+  } else {
+    console.error("[STRATOS] Flow 2 failed:", eventResult.reason?.message);
+  }
+
   if (impactResult.status === "fulfilled") {
-    console.log(
-      `[STRATOS] Flow 3 done — overall severity: ${impact.overall_severity}`
-    );
+    console.log(`[STRATOS] Flow 3 done — overall severity: ${impact.overall_severity}`);
   } else {
     console.error("[STRATOS] Flow 3 failed:", impactResult.reason?.message);
   }
 
   // ─────────────────────────────────────────
-  // FLOW 4 — Risk forecasting (needs Flow 3 output)
+  // FLOW 4 + FLOW 5 — Run in parallel
   // ─────────────────────────────────────────
-  let riskResult = { error: null };
+  console.log("[STRATOS] Flow 4 + Flow 5 — Running in parallel...");
 
-  if (impactResult.status === "fulfilled" && impact.impacts.length > 0) {
-    console.log("[STRATOS] Flow 4 — Forecasting risks...");
-    try {
-      riskResult = await forecastRisks({
-        impactData: impact,
-        evidenceChunks: evidence_chunks,
-        signals: geopolitical_signals,
-      });
-      console.log(
-        `[STRATOS] Flow 4 done — ${riskResult.risk_count} risks, level: ${riskResult.risk_level}`
-      );
-    } catch (err) {
-      console.error("[STRATOS] Flow 4 failed:", err.message);
-      riskResult = { error: err.message, risks: [] };
-    }
+  const narrativesForCheck = events.narratives || [];
+  const hasImpact = impactResult.status === "fulfilled" && impact.impacts?.length > 0;
+  const hasNarratives = narrativesForCheck.length > 0;
+
+  const [riskResult, narrativeResult] = await Promise.allSettled([
+    hasImpact
+      ? forecastRisks({ impactData: impact, evidenceChunks: evidence_chunks, signals: geopolitical_signals })
+      : Promise.reject(new Error("Skipped — no impact data")),
+    hasNarratives
+      ? checkNarratives({ narratives: narrativesForCheck, evidenceChunks: evidence_chunks })
+      : Promise.reject(new Error("Skipped — no narratives")),
+  ]);
+
+  const forecast =
+    riskResult.status === "fulfilled"
+      ? riskResult.value
+      : { error: riskResult.reason?.message, risks: [] };
+
+  const narrativeCheck =
+    narrativeResult.status === "fulfilled"
+      ? narrativeResult.value
+      : { error: narrativeResult.reason?.message, narrative_checks: [] };
+
+  if (riskResult.status === "fulfilled") {
+    console.log(`[STRATOS] Flow 4 done — ${forecast.risk_count} risks, level: ${forecast.risk_level}`);
   } else {
-    console.warn("[STRATOS] Flow 4 skipped — Flow 3 did not produce impact data.");
-    riskResult = { error: "Skipped — no impact data available", risks: [] };
+    console.error("[STRATOS] Flow 4 failed:", riskResult.reason?.message);
+  }
+
+  if (narrativeResult.status === "fulfilled") {
+    console.log(`[STRATOS] Flow 5 done — integrity: ${narrativeCheck.overall_narrative_integrity}`);
+  } else {
+    console.error("[STRATOS] Flow 5 failed:", narrativeResult.reason?.message);
   }
 
   // ─────────────────────────────────────────
   // Return combined result
   // ─────────────────────────────────────────
   return {
-    // Flow 1
     ingestion: {
       document_stats: ingestResult.document_stats,
       evidence_chunks: ingestResult.evidence_chunks,
@@ -97,7 +103,6 @@ export async function runFullAnalysis({ text, query }) {
       query_used: ingestResult.query_used,
       processed_at: ingestResult.processed_at,
     },
-    // Flow 2
     intelligence: {
       events: events.events || [],
       narratives: events.narratives || [],
@@ -108,7 +113,6 @@ export async function runFullAnalysis({ text, query }) {
       extracted_at: events.extracted_at || null,
       error: events.error || null,
     },
-    // Flow 3
     impact: {
       summary: impact.summary || null,
       overall_severity: impact.overall_severity || null,
@@ -118,24 +122,33 @@ export async function runFullAnalysis({ text, query }) {
       analyzed_at: impact.analyzed_at || null,
       error: impact.error || null,
     },
-    // Flow 4
     forecast: {
-      risk_summary: riskResult.risk_summary || null,
-      risk_level: riskResult.risk_level || null,
-      risks: riskResult.risks || [],
-      risk_count: riskResult.risk_count || 0,
-      highest_probability_risk: riskResult.highest_probability_risk || null,
-      most_severe_risk: riskResult.most_severe_risk || null,
-      stabilization_scenario: riskResult.stabilization_scenario || null,
-      forecasted_at: riskResult.forecasted_at || null,
-      error: riskResult.error || null,
+      risk_summary: forecast.risk_summary || null,
+      risk_level: forecast.risk_level || null,
+      risks: forecast.risks || [],
+      risk_count: forecast.risk_count || 0,
+      highest_probability_risk: forecast.highest_probability_risk || null,
+      most_severe_risk: forecast.most_severe_risk || null,
+      stabilization_scenario: forecast.stabilization_scenario || null,
+      forecasted_at: forecast.forecasted_at || null,
+      error: forecast.error || null,
     },
-    // Meta
+    narrative_reality: {
+      narrative_checks: narrativeCheck.narrative_checks || [],
+      narratives_analyzed: narrativeCheck.narratives_analyzed || 0,
+      overall_narrative_integrity: narrativeCheck.overall_narrative_integrity || null,
+      most_misleading_narrative: narrativeCheck.most_misleading_narrative || null,
+      most_accurate_narrative: narrativeCheck.most_accurate_narrative || null,
+      analysis_summary: narrativeCheck.analysis_summary || null,
+      analyzed_at: narrativeCheck.analyzed_at || null,
+      error: narrativeCheck.error || null,
+    },
     pipeline_status: {
       flow1: "success",
       flow2: eventResult.status === "fulfilled" ? "success" : "failed",
       flow3: impactResult.status === "fulfilled" ? "success" : "failed",
-      flow4: riskResult.error ? "failed" : "success",
+      flow4: riskResult.status === "fulfilled" ? "success" : "failed",
+      flow5: narrativeResult.status === "fulfilled" ? "success" : "failed",
     },
     completed_at: new Date().toISOString(),
   };
