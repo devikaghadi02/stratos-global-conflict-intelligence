@@ -18,7 +18,6 @@ export function getNextGeminiKey() {
   const keys = [
     process.env.GEMINI_API_KEY,
     process.env.GEMINI_API_KEY_2,
-    process.env.GEMINI_API_KEY_3,
   ].filter(Boolean);
 
   const key = keys[keyIndex % keys.length];
@@ -71,7 +70,7 @@ export async function runFullAnalysis({ text, query }) {
     console.error("[STRATOS] Flow 2 failed:", err.message);
   }
 
-  await wait(15000);
+  await wait(3000);
 
   // ─────────────────────────────────────────
   // FLOW 3 — Systemic impact analysis

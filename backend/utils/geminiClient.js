@@ -8,9 +8,9 @@ export async function callGemini(prompt, options = {}) {
     const response = await axios.post(
       'https://openrouter.ai/api/v1/chat/completions',
       {
-        model: 'google/gemma-3-12b-it:free',
+        model: 'google/gemma-3-4b-it:free',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: options.maxTokens ?? 4096,
+        max_tokens: options.maxTokens ?? 1024,
         temperature: options.temperature ?? 0.2
       },
       {

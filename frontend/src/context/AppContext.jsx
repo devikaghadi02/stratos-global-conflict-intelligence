@@ -10,7 +10,7 @@ import {
     mockChatHistory,
     mockPipelineStatus,
 } from "../data/mockData";
-import { ingestDocument } from "../api/ingestService";
+import { ingestDocument, askAssistant } from "../api/ingestService";
 
 export const AppContext = createContext(null);
 
@@ -62,66 +62,69 @@ export function AppProvider({ children }) {
             FLOW 2 — EVENTS
             */
             if (data.intelligence?.events) {
-                // Map backend event fields to frontend if necessary
-                const mappedEvents = data.intelligence.events.map(event => ({
-                    ...event,
-                    id: event.id || Math.random().toString(36).substr(2, 9),
-                    timestamp: event.timestamp || new Date().toISOString(),
-                }));
-                setEvents(mappedEvents);
+                // Backend events are usually fine as is, but ensure consistency
+                setEvents(data.intelligence.events.map(ev => ({
+                    ...ev,
+                    timestamp: ev.timestamp || new Date().toISOString(),
+                    impact: ev.impact || [] // Ensure impact array exists
+                })));
             }
 
             /*
             FLOW 3 — IMPACT
+            Map backend impact to SystemImpactMatrix expected format
             */
             if (data.impact?.impacts) {
-                const SEVERITY_SCORES = { CRITICAL: 90, HIGH: 75, MEDIUM: 50, LOW: 25, NONE: 10 };
-                
-                const mappedImpacts = data.impact.impacts.map(impact => {
-                    const currentScore = SEVERITY_SCORES[impact.severity] || 30;
-                    // Add some synthetic variance for the "forecast" look
-                    const forecastScore = Math.min(100, currentScore + (Math.random() * 15 - 5));
-                    
-                    return {
-                        system: impact.system,
-                        current: currentScore,
-                        forecast: Math.round(forecastScore),
-                        status: impact.severity, // UI expects 'status'
-                        trend: forecastScore > currentScore ? "up" : "down"
-                    };
-                });
-                setSystemImpact(mappedImpacts);
+                const severityMap = {
+                    "CRITICAL": 90,
+                    "HIGH": 75,
+                    "MEDIUM": 50,
+                    "LOW": 25,
+                    "NONE": 10
+                };
+
+                const mappedImpact = data.impact.impacts.map(imp => ({
+                    system: imp.system.split(' ')[0], // Extract first word (Energy, Trade, etc.)
+                    status: imp.severity,
+                    current: severityMap[imp.severity] || 20,
+                    forecast: (severityMap[imp.severity] || 20) + (imp.severity === "CRITICAL" ? 5 : 10),
+                    trend: "up"
+                }));
+                setSystemImpact(mappedImpact);
             }
 
             /*
             FLOW 4 — RISKS
+            Map backend risk to RiskForecastTimeline and RiskPage expected format
             */
             if (data.forecast?.risks) {
-                const LIKELIHOOD_MAP = { CRITICAL: 90, HIGH: 75, MEDIUM: 50, LOW: 25 };
-                
-                const mappedRisks = data.forecast.risks.map(risk => ({
-                    id: risk.id || Math.random().toString(36).substr(2, 9),
-                    date: risk.timeframe || "Upcoming",
-                    scenario: risk.scenario,
-                    probability: LIKELIHOOD_MAP[risk.likelihood] || 40, // UI expects numeric probability
-                    severity: risk.impact_severity,
-                    systems: risk.affected_systems || [],
-                    timeframe: risk.timeframe
+                const mappedRisks = data.forecast.risks.map(r => ({
+                    id: r.id,
+                    scenario: r.title, // Keep for Timeline
+                    title: r.title,    // Add for RiskPage
+                    severity: r.severity,
+                    probability: r.probability,
+                    timeframe: r.timeframe,
+                    date: "Q2 2026", // Mock date context
+                    systems: r.affected_systems || []
                 }));
-                setRiskForecast(mappedRisks);
+                // Set as object to satisfy RiskPage.jsx expectations
+                setRiskForecast({ risks: mappedRisks });
             }
 
             /*
             FLOW 5 — NARRATIVES
+            Map backend narrative checks to NarrativeRealityPanel expected format
             */
             if (data.narrative_reality?.narrative_checks) {
-                const mappedNarratives = data.narrative_reality.narrative_checks.map(check => ({
-                    id: check.id || Math.random().toString(36).substr(2, 9),
-                    narrative: check.narrative,
-                    alignment: check.verdict, // UI expects 'alignment'
-                    confidence: check.confidence_score,
-                    evidence: check.reasoning,
-                    signals: check.evidence_refs || []
+                const mappedNarratives = data.narrative_reality.narrative_checks.map(n => ({
+                    id: n.narrative_id,
+                    alignment: n.alignment === "PARTIAL" ? "PARTIALLY_ALIGNED" : n.alignment, // Handle enum mismatch
+                    narrative: n.narrative_title,
+                    verdict: n.verdict,
+                    evidence: n.reality_check || n.verdict, // Use reality_check for the main text
+                    signals: n.misleading_elements || [],
+                    confidence: n.alignment_score || 70
                 }));
                 setNarratives(mappedNarratives);
             }
@@ -141,23 +144,33 @@ export function AppProvider({ children }) {
         setChatHistory((prev) => [...prev, userMsg]);
         setIsChatLoading(true);
 
-        await new Promise((r) => setTimeout(r, 1200 + Math.random() * 800));
+        try {
+            // Use real assistant API with required context
+            const response = await askAssistant(message, {
+                evidenceChunks: evidenceChunks, // Backend requires evidenceChunks array
+                events: events,
+                riskScenarios: riskForecast?.risks || [],
+                conversationHistory: chatHistory.map(m => ({ role: m.role, content: m.content }))
+            });
 
-        const mockResponses = [
-            "Based on current signals, energy systems face an 88% disruption severity index...",
-            "Shipping route analysis shows a 34% traffic reduction through Hormuz...",
-            "The economic impact matrix indicates moderate-to-high pressure...",
-            "Narrative analysis identifies 3 verified signal clusters and 1 unverifiable claim..."
-        ];
-
-        const aiMsg = {
-            role: "assistant",
-            content: mockResponses[Math.floor(Math.random() * mockResponses.length)],
-            timestamp: new Date().toTimeString().slice(0, 8),
-        };
-        setChatHistory((prev) => [...prev, aiMsg]);
-        setIsChatLoading(false);
-    }, []);
+            const aiMsg = {
+                role: "assistant",
+                content: response.answer || response.content || "I'm processing your request.",
+                timestamp: new Date().toTimeString().slice(0, 8),
+            };
+            setChatHistory((prev) => [...prev, aiMsg]);
+        } catch (err) {
+            console.error("Assistant error:", err);
+            const errorMsg = {
+                role: "assistant",
+                content: "I'm sorry, I encountered an error connecting to the intelligence engine.",
+                timestamp: new Date().toTimeString().slice(0, 8),
+            };
+            setChatHistory((prev) => [...prev, errorMsg]);
+        } finally {
+            setIsChatLoading(false);
+        }
+    }, [evidenceChunks, events, riskForecast, chatHistory]);
 
     return (
         <AppContext.Provider

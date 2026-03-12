@@ -49,16 +49,11 @@ function runPythonRAG(payload) {
   });
 }
 
-import { fetchLiveGdeltEvents } from "./fetchers/gdeltFetcher.js";
-import { fetchLiveCommodities } from "./fetchers/commodityFetcher.js";
-import { fetchLiveMaritime } from "./fetchers/maritimeFetcher.js";
-
 // Main service function — called by the controller
 export async function ingestDocument({ text, query }) {
   const effectiveQuery =
     query?.trim() || "geopolitical conflict impact energy trade logistics";
 
-  console.log("[STRATOS] Running RAG Engine on local document...");
   const result = await runPythonRAG({
     mode: "ingest",
     text: text.trim(),
@@ -69,24 +64,8 @@ export async function ingestDocument({ text, query }) {
     throw new Error(result.error);
   }
 
-  // Fetch Live Data in parallel
-  console.log("[STRATOS] Fetching live supplementary data...");
-  const [liveGdelt, liveCommodities, liveMaritime] = await Promise.all([
-    fetchLiveGdeltEvents(),
-    fetchLiveCommodities(),
-    fetchLiveMaritime()
-  ]);
-
-  // Combine live data with RAG extracted chunks
-  const combinedEvidence = [
-    ...result.evidence_chunks,
-    ...liveGdelt,
-    ...liveCommodities,
-    ...liveMaritime
-  ];
-
   // Enrich each evidence chunk with position and word count
-  const enrichedEvidence = combinedEvidence.map((chunk, i) => ({
+  const enrichedEvidence = result.evidence_chunks.map((chunk, i) => ({
     ...chunk,
     position: i + 1,
     word_count: chunk.text.split(" ").length,
