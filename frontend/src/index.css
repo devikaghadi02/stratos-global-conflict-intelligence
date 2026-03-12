@@ -1,68 +1,130 @@
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+@theme {
+  /* Nike/Stripe Color System */
+  --color-bg: #0f1117;
+  --color-surface: #1a1f2e;
+  --color-surface-2: #222839;
+  --color-border: #2a3347;
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #8892a4;
+  --color-text-muted: #4a5568;
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
+  --color-cyan-brand: #22d3ee;
+  --color-amber-brand: #fbbf24;
+  --color-red-brand: #f87171;
+  --color-green-brand: #34d399;
 
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  /* Typography */
+  --font-plus-jakarta: "Plus Jakarta Sans", sans-serif;
+  --font-plex-mono: "IBM Plex Mono", monospace;
+
+  --font-heading: var(--font-plus-jakarta);
+  --font-body: var(--font-plus-jakarta);
+  --font-mono: var(--font-plex-mono);
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
   }
-  a:hover {
-    color: #747bff;
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    background: var(--color-bg);
+    font-family: var(--font-plus-jakarta);
+    color: white;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
   }
-  button {
-    background-color: #f9f9f9;
+
+  /* Typography Sizing */
+  h1 {
+    font-family: var(--font-plus-jakarta);
+    font-size: 48px;
+    font-weight: 800;
+    line-height: 1.1;
   }
+
+  h2 {
+    font-family: var(--font-plus-jakarta);
+    font-size: 28px;
+    font-weight: 700;
+  }
+
+  h3 {
+    font-family: var(--font-plus-jakarta);
+    font-size: 20px;
+    font-weight: 600;
+  }
+}
+
+@layer components {
+
+  /* Scrollbar Styling */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-muted);
+  }
+
+  .mono {
+    font-family: var(--font-plex-mono);
+  }
+
+  /* Utility Classes */
+  .text-secondary {
+    color: var(--color-text-secondary);
+  }
+
+  .text-muted {
+    color: var(--color-text-muted);
+  }
+
+  .text-cyan {
+    color: var(--color-cyan-brand);
+  }
+
+  .bg-cyan-soft {
+    background-color: rgba(34, 211, 238, 0.08);
+  }
+}
+
+/* Custom Animations */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
 }

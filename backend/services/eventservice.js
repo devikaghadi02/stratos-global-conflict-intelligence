@@ -1,7 +1,7 @@
 import fetch from "node-fetch";
 
 const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
 
 const EVENT_TYPES = [
   "MILITARY_ACTION",
@@ -14,10 +14,6 @@ const EVENT_TYPES = [
   "INFRASTRUCTURE_ATTACK",
 ];
 
-// ─────────────────────────────────────────
-// Build the Gemini prompt
-// ─────────────────────────────────────────
-
 function buildPrompt(evidenceChunks, signals) {
   const evidenceText = evidenceChunks
     .map((c, i) => `[CHUNK ${i + 1}] (relevance: ${c.relevance})\n${c.text}`)
@@ -25,9 +21,7 @@ function buildPrompt(evidenceChunks, signals) {
 
   const signalText =
     signals && signals.length > 0
-      ? signals
-          .map((s) => `${s.domain}: ${s.terms.join(", ")} (${s.count} mentions)`)
-          .join("\n")
+      ? signals.map((s) => `${s.domain}: ${s.terms.join(", ")} (${s.count} mentions)`).join("\n")
       : "No signals detected.";
 
   return `You are STRATOS, a geopolitical intelligence analyst.
@@ -77,35 +71,28 @@ Respond ONLY with a valid JSON object. No extra text. No markdown. No code fence
 }`;
 }
 
-// ─────────────────────────────────────────
-// Call Gemini API with retry
-// ─────────────────────────────────────────
+async function callGemini(prompt, apiKey, retries = 3) {
+  const key = apiKey || process.env.GEMINI_API_KEY;
 
-async function callGemini(prompt, retries = 3) {
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  if (!apiKey || apiKey === "your_gemini_api_key_here") {
-    throw new Error("GEMINI_API_KEY is not set in your .env file.");
-  }
+  if (!key) throw new Error("No Gemini API key available.");
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     console.log(`[STRATOS] Calling Gemini — attempt ${attempt}/${retries}`);
 
-    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+    const response = await fetch(`${GEMINI_API_URL}?key=${key}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 8192,
-        },
+        generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
       }),
     });
 
     if (response.status === 429) {
-      console.log(`[STRATOS] Rate limited. Waiting 10s before retry...`);
-      await new Promise((r) => setTimeout(r, 10000));
+      const errBody = await response.text();
+      console.log(`[STRATOS] Rate limited (429). Body: ${errBody}`);
+      console.log(`[STRATOS] Waiting 10s...`);
+      await new Promise((r) => setTimeout(r, 20000));
       continue;
     }
 
@@ -116,53 +103,34 @@ async function callGemini(prompt, retries = 3) {
 
     const data = await response.json();
     const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!rawText) throw new Error("Gemini returned an empty response.");
-
+    if (!rawText) throw new Error("Gemini returned empty response.");
     return rawText;
   }
 
   throw new Error("Gemini API failed after 3 retries.");
 }
 
-// ─────────────────────────────────────────
-// Parse Gemini JSON response safely
-// ─────────────────────────────────────────
-
 function parseGeminiResponse(rawText) {
-  let cleaned = rawText
-    .replace(/```json/gi, "")
-    .replace(/```/g, "")
-    .trim();
-
+  let cleaned = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
-
-  if (start === -1 || end === -1) {
-    throw new Error(`No JSON found in Gemini response: ${cleaned.slice(0, 200)}`);
-  }
-
+  if (start === -1 || end === -1) throw new Error(`No JSON found: ${cleaned.slice(0, 200)}`);
   try {
     return JSON.parse(cleaned.slice(start, end + 1));
   } catch (e) {
-    throw new Error(`Failed to parse Gemini JSON: ${cleaned.slice(start, start + 200)}`);
+    throw new Error(`Failed to parse JSON: ${cleaned.slice(start, start + 200)}`);
   }
 }
 
-// ─────────────────────────────────────────
-// Main service function
-// ─────────────────────────────────────────
-
-export async function extractEvents({ evidenceChunks, signals }) {
+export async function extractEvents({ evidenceChunks, signals, geminiKey }) {
   if (!evidenceChunks || evidenceChunks.length === 0) {
-    throw new Error("No evidence chunks provided. Run document ingestion first.");
+    throw new Error("No evidence chunks provided.");
   }
 
   const prompt = buildPrompt(evidenceChunks, signals || []);
-
   console.log(`[STRATOS] Extracting events from ${evidenceChunks.length} chunks...`);
 
-  const rawText = await callGemini(prompt);
+  const rawText = await callGemini(prompt, geminiKey);
   const parsed = parseGeminiResponse(rawText);
 
   const events = (parsed.events || []).map((e) => ({
