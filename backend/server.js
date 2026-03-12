@@ -3,6 +3,9 @@ import cors from "cors";
 import dotenv from "dotenv";
 import ingestRoutes from "./routes/ingestRoutes.js";
 import impactRoutes from "./routes/impactRoutes.js";
+import eventRoutes from "./routes/eventRoutes.js";
+import riskRoutes from "./routes/riskRoutes.js";
+import analyzeRoutes from "./routes/analyzeRoutes.js";
 
 // Load environment variables
 dotenv.config();
@@ -19,13 +22,19 @@ app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
     platform: "STRATOS",
+    flows_active: ["ingest", "events", "impact", "risks", "analyze"],
     timestamp: new Date().toISOString(),
   });
 });
 
-// Routes
+// Individual flow routes
 app.use("/api/ingest", ingestRoutes);
+app.use("/api/events", eventRoutes);
 app.use("/api/impact", impactRoutes);
+app.use("/api/risks", riskRoutes);
+
+// Combined pipeline route — runs all flows
+app.use("/api/analyze", analyzeRoutes);
 
 // Start
 app.listen(PORT, () => {
