@@ -1,5 +1,4 @@
-import { callGemini } from '../utils/geminiClient.js';
-import { parseLLMJson } from '../utils/jsonParser.js';
+import { callAI, parseAIJson } from '../utils/aiClient.js';
 import { buildAssistantPrompt } from '../utils/promptBuilder.js';
 
 export async function processAssistantQuery(userQuestion, context) {
@@ -23,11 +22,11 @@ export async function processAssistantQuery(userQuestion, context) {
   }
 
   const prompt = buildAssistantPrompt(question, { evidenceChunks, events, impactMatrix, riskScenarios });
-  const rawResponse = await callGemini(prompt, { temperature: 0.4, maxTokens: 4096 });
+  const rawResponse = await callAI(prompt, { temperature: 0.4, maxTokens: 4096 });
 
   let parsed;
   try {
-    parsed = parseLLMJson(rawResponse);
+    parsed = parseAIJson(rawResponse);
   } catch (_) {
     console.warn('[Flow6] JSON parse failed, returning raw text');
     return {

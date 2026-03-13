@@ -1,49 +1,29 @@
-import fetch from "node-fetch";
-
-const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+import { callAI, parseAIJson } from "../utils/aiClient.js";
 
 const RISK_CATEGORIES = [
-  "ENERGY_CRISIS",
-  "SUPPLY_CHAIN_COLLAPSE",
-  "FINANCIAL_CONTAGION",
-  "HUMANITARIAN_EMERGENCY",
-  "MILITARY_ESCALATION",
-  "FOOD_SECURITY_THREAT",
-  "DIPLOMATIC_BREAKDOWN",
-  "INFRASTRUCTURE_FAILURE",
+  "ENERGY_CRISIS", "SUPPLY_CHAIN_COLLAPSE", "FINANCIAL_CONTAGION",
+  "HUMANITARIAN_EMERGENCY", "MILITARY_ESCALATION", "FOOD_SECURITY_THREAT",
+  "DIPLOMATIC_BREAKDOWN", "INFRASTRUCTURE_FAILURE",
 ];
-
 const TIMEFRAMES = ["0-30 days", "30-60 days", "60-90 days", "90+ days"];
 
-function buildPrompt(impactData, evidenceChunks, signals) {
+function buildPrompt(impactData) {
   const impactText = impactData.impacts
     .filter((i) => i.severity !== "NONE")
     .map((i) => `[${i.system}] ${i.severity}: ${i.headline}`)
     .join("\n");
 
-  const signalText =
-    signals && signals.length > 0
-      ? signals.map((s) => `${s.domain}: ${s.terms.join(", ")}`).join("\n")
-      : "No signals.";
-
   return `You are STRATOS, a geopolitical risk forecasting analyst.
 
-CURRENT OVERALL SEVERITY: ${impactData.overall_severity}
-MOST AFFECTED SYSTEM: ${impactData.most_affected_system}
+OVERALL SEVERITY: ${impactData.overall_severity}
+MOST AFFECTED: ${impactData.most_affected_system}
 
-CURRENT IMPACTS:
+IMPACTS:
 ${impactText}
 
-SIGNALS:
-${signalText}
+Forecast exactly 4 risk scenarios. Keep all text under 2 sentences.
 
-TASK: Forecast exactly 4 risk scenarios. Keep all text fields short — max 2 sentences each.
-
-RISK CATEGORIES: ${RISK_CATEGORIES.join(", ")}
-TIMEFRAMES: ${TIMEFRAMES.join(", ")}
-
-Respond ONLY with valid JSON. No extra text. No markdown. No code fences:
+Respond ONLY with valid JSON, no extra text, no markdown:
 {
   "risk_summary": "max 2 sentences",
   "risk_level": "CRITICAL|HIGH|MEDIUM|LOW",
@@ -51,7 +31,7 @@ Respond ONLY with valid JSON. No extra text. No markdown. No code fences:
     {
       "id": "RSK001",
       "title": "short title",
-      "category": "one of RISK_CATEGORIES",
+      "category": "ENERGY_CRISIS",
       "description": "max 2 sentences",
       "probability": 85,
       "timeframe": "0-30 days",
@@ -68,65 +48,12 @@ Respond ONLY with valid JSON. No extra text. No markdown. No code fences:
 }`;
 }
 
-async function callGemini(prompt, apiKey, retries = 3) {
-  const key = apiKey || process.env.GEMINI_API_KEY;
+export async function forecastRisks({ impactData, evidenceChunks, signals }) {
+  if (!impactData?.impacts?.length) throw new Error("No impact data provided.");
 
-  if (!key) throw new Error("No Gemini API key available.");
-
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    console.log(`[STRATOS] Calling Gemini — attempt ${attempt}/${retries}`);
-
-    const response = await fetch(`${GEMINI_API_URL}?key=${key}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 8192 },
-      }),
-    });
-
-    if (response.status === 429) {
-      console.log(`[STRATOS] Rate limited. Waiting 10s...`);
-      await new Promise((r) => setTimeout(r, 20000));
-      continue;
-    }
-
-    if (!response.ok) {
-      const err = await response.text();
-      throw new Error(`Gemini API error: ${response.status} — ${err.slice(0, 300)}`);
-    }
-
-    const data = await response.json();
-    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!rawText) throw new Error("Gemini returned empty response.");
-    return rawText;
-  }
-
-  throw new Error("Gemini API failed after 3 retries.");
-}
-
-function parseGeminiResponse(rawText) {
-  let cleaned = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  if (start === -1 || end === -1) throw new Error(`No JSON found: ${cleaned.slice(0, 200)}`);
-  try {
-    return JSON.parse(cleaned.slice(start, end + 1));
-  } catch (e) {
-    throw new Error(`Failed to parse JSON: ${cleaned.slice(start, start + 200)}`);
-  }
-}
-
-export async function forecastRisks({ impactData, evidenceChunks, signals, geminiKey }) {
-  if (!impactData || !impactData.impacts || impactData.impacts.length === 0) {
-    throw new Error("No impact data provided.");
-  }
-
-  const prompt = buildPrompt(impactData, evidenceChunks || [], signals || []);
   console.log(`[STRATOS] Forecasting risks from ${impactData.impacts.length} impact systems...`);
-
-  const rawText = await callGemini(prompt, geminiKey);
-  const parsed = parseGeminiResponse(rawText);
+  const rawText = await callAI(buildPrompt(impactData), { temperature: 0.3 });
+  const parsed = parseAIJson(rawText);
 
   const risks = (parsed.risks || []).map((r) => ({
     id: r.id || `RSK${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
