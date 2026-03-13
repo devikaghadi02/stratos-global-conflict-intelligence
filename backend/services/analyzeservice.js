@@ -18,72 +18,65 @@ export async function runFullAnalysis({ text, query }) {
 
   const { evidence_chunks, geopolitical_signals } = ingestResult;
 
-  // ── FLOW 2 + FLOW 3 — Parallel (different OpenRouter requests)
-  console.log("[STRATOS] Flow 2 + Flow 3 — Running in parallel...");
-  const [eventResult, impactResult] = await Promise.allSettled([
-    extractEvents({ evidenceChunks: evidence_chunks, signals: geopolitical_signals }),
-    analyzeImpact({ evidenceChunks: evidence_chunks, signals: geopolitical_signals }),
-  ]);
-
-  const events = eventResult.status === "fulfilled"
-    ? eventResult.value
-    : { events: [], narratives: [], event_count: 0, narrative_count: 0, error: eventResult.reason?.message };
-
-  const impact = impactResult.status === "fulfilled"
-    ? impactResult.value
-    : { impacts: [], error: impactResult.reason?.message };
-
-  if (eventResult.status === "fulfilled") {
-    console.log(`[STRATOS] Flow 2 done — ${events.event_count} events, ${events.narrative_count} narratives`);
-  } else {
-    console.error("[STRATOS] Flow 2 failed:", eventResult.reason?.message);
+  // ── FLOW 2 — Event Extraction
+  console.log("[STRATOS] Flow 2 — Extracting events...");
+  let events = { events: [], narratives: [], event_count: 0, narrative_count: 0, error: null };
+  try {
+    events = await extractEvents({ evidenceChunks: evidence_chunks, signals: geopolitical_signals });
+    console.log(`[STRATOS] Flow 2 done — ${events.event_count} events`);
+  } catch (err) {
+    events.error = err.message;
+    console.error("[STRATOS] Flow 2 failed:", err.message);
   }
 
-  if (impactResult.status === "fulfilled") {
+  await wait(2000); // Safety gap
+
+  // ── FLOW 3 — Impact Analysis
+  console.log("[STRATOS] Flow 3 — Analyzing impact...");
+  let impact = { impacts: [], error: null };
+  try {
+    impact = await analyzeImpact({ evidenceChunks: evidence_chunks, signals: geopolitical_signals });
     console.log(`[STRATOS] Flow 3 done — overall severity: ${impact.overall_severity}`);
-  } else {
-    console.error("[STRATOS] Flow 3 failed:", impactResult.reason?.message);
+  } catch (err) {
+    impact.error = err.message;
+    console.error("[STRATOS] Flow 3 failed:", err.message);
   }
 
   await wait(2000);
 
-  // ── FLOW 4 + FLOW 5 — Parallel
-  console.log("[STRATOS] Flow 4 + Flow 5 — Running in parallel...");
+  // ── FLOW 4 — Risk Forecasting
+  console.log("[STRATOS] Flow 4 — Forecasting risks...");
+  let forecast = { risks: [], error: null };
+  if (impact.impacts?.length > 0) {
+    try {
+      forecast = await forecastRisks({ impactData: impact, evidenceChunks: evidence_chunks, signals: geopolitical_signals });
+      console.log(`[STRATOS] Flow 4 done — ${forecast.risk_count} risks`);
+    } catch (err) {
+      forecast.error = err.message;
+      console.error("[STRATOS] Flow 4 failed:", err.message);
+    }
+  }
+
+  await wait(2000);
+
+  // ── FLOW 5 — Narrative Analysis
+  console.log("[STRATOS] Flow 5 — Checking narratives...");
+  let narrativeCheck = { narrative_checks: [], error: null };
   const narrativesForCheck = events.narratives || [];
-
-  const [riskResult, narrativeResult] = await Promise.allSettled([
-    impact.impacts?.length > 0
-      ? forecastRisks({ impactData: impact, evidenceChunks: evidence_chunks, signals: geopolitical_signals })
-      : Promise.reject(new Error("Skipped — no impact data")),
-    narrativesForCheck.length > 0
-      ? checkNarratives({ narratives: narrativesForCheck, evidenceChunks: evidence_chunks })
-      : Promise.reject(new Error("Skipped — no narratives")),
-  ]);
-
-  const forecast = riskResult.status === "fulfilled"
-    ? riskResult.value
-    : { risks: [], error: riskResult.reason?.message };
-
-  const narrativeCheck = narrativeResult.status === "fulfilled"
-    ? narrativeResult.value
-    : { narrative_checks: [], error: narrativeResult.reason?.message };
-
-  if (riskResult.status === "fulfilled") {
-    console.log(`[STRATOS] Flow 4 done — ${forecast.risk_count} risks, level: ${forecast.risk_level}`);
-  } else {
-    console.error("[STRATOS] Flow 4 failed:", riskResult.reason?.message);
+  if (narrativesForCheck.length > 0) {
+    try {
+      narrativeCheck = await checkNarratives({ narratives: narrativesForCheck, evidenceChunks: evidence_chunks });
+      console.log(`[STRATOS] Flow 5 done — integrity: ${narrativeCheck.overall_narrative_integrity}`);
+    } catch (err) {
+      narrativeCheck.error = err.message;
+      console.error("[STRATOS] Flow 5 failed:", err.message);
+    }
   }
 
-  if (narrativeResult.status === "fulfilled") {
-    console.log(`[STRATOS] Flow 5 done — integrity: ${narrativeCheck.overall_narrative_integrity}`);
-  } else {
-    console.error("[STRATOS] Flow 5 failed:", narrativeResult.reason?.message);
-  }
-
-  const flow2Status = eventResult.status === "fulfilled" ? "success" : "failed";
-  const flow3Status = impactResult.status === "fulfilled" ? "success" : "failed";
-  const flow4Status = riskResult.status === "fulfilled" ? "success" : "failed";
-  const flow5Status = narrativeResult.status === "fulfilled" ? "success" : "failed";
+  const flow2Status = events.error ? "failed" : "success";
+  const flow3Status = impact.error ? "failed" : "success";
+  const flow4Status = forecast.error ? "failed" : "success";
+  const flow5Status = narrativeCheck.error ? "failed" : "success";
 
   console.log(`[STRATOS] Pipeline complete — Flow1: success | Flow2: ${flow2Status} | Flow3: ${flow3Status} | Flow4: ${flow4Status} | Flow5: ${flow5Status}`);
 
